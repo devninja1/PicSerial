@@ -1,11 +1,16 @@
 ﻿using Microsoft.Win32;
 
 using System;
+using System.Collections.ObjectModel;
+using System.Data;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 
 using static System.Net.Mime.MediaTypeNames;
@@ -19,12 +24,37 @@ namespace PicSerial
     /// </summary>
     public partial class MainWindow : Window
     {
+        public ObservableCollection<ImageItem> Images { get; set; } = new ObservableCollection<ImageItem>();
         private string selectedFolder = string.Empty;
         private int imageCount = 0;
+        private Point _dragStartPoint;
+        private bool _isClosing = false; // flag to avoid loop
 
         public MainWindow()
         {
             InitializeComponent();
+            DataContext = this;
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            var fadeIn = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(800));
+            BeginAnimation(UIElement.OpacityProperty, fadeIn);
+        }
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (_isClosing) return; // already closing, skip
+
+            e.Cancel = true; // stop immediate close
+            _isClosing = true;
+
+            var fadeOut = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(500));
+            fadeOut.Completed += (s, _) =>
+            {
+                // force close without triggering Closing again
+                System.Windows.Application.Current.Shutdown();
+            };
+            BeginAnimation(UIElement.OpacityProperty, fadeOut);
         }
 
         private async void BtnNewFolder_Click(object sender, RoutedEventArgs e)
@@ -38,7 +68,7 @@ namespace PicSerial
             if (dialog.ShowDialog() == true)
             {
                 selectedFolder = Path.GetDirectoryName(dialog.FileName);
-                PreviewPanel.Children.Clear();
+                Images.Clear();
                 imageCount = 0;
                 UpdateStatus();
 
@@ -49,9 +79,9 @@ namespace PicSerial
                 await Task.Delay(100);
 
                 var existingFiles = Directory.GetFiles(selectedFolder, "*.*")
-                                             .Where(f => IsImageFile(f))
-                                             .OrderBy(f => f)
-                                             .ToList();
+                                            .Where(IsImageFile)
+                                            .OrderBy(f => f)
+                                            .ToList();
 
                 await Task.Run(() =>
                 {
@@ -59,21 +89,27 @@ namespace PicSerial
                     foreach (var file in existingFiles)
                     {
                         processed++;
-                        string newFileName = Path.Combine(selectedFolder, processed.ToString("D4") + Path.GetExtension(file));
+                        string expectedName = $"{processed:D4}{Path.GetExtension(file)}";
+                        string expectedPath = Path.Combine(selectedFolder, expectedName);
 
-                        if (Path.GetFileName(file) != Path.GetFileName(newFileName))
+                        // If already correctly named, just use it
+                        string finalPath = file;
+                        if (Path.GetFileName(file) != expectedName)
                         {
-                            File.Copy(file, newFileName, true);
+                            // Rename instead of duplicating
+                            File.Move(file, expectedPath);
+                            finalPath = expectedPath;
                         }
 
                         Dispatcher.Invoke(() =>
                         {
-                            AddThumbnail(newFileName, file);
+                            Images.Add(new ImageItem(finalPath, file));
                             imageCount = processed;
                             UpdateStatus();
                         });
                     }
                 });
+
 
                 StopSpinner();
                 ShowToast("Folder images loaded successfully!");
@@ -83,7 +119,8 @@ namespace PicSerial
 
         private void BtnClearPreviews_Click(object sender, RoutedEventArgs e)
         {
-            PreviewPanel.Children.Clear();
+            Images.Clear();
+            UpdateStatus();
             ShowToast("Previews cleared!");
         }
 
@@ -131,12 +168,14 @@ namespace PicSerial
                 return;
             }
 
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return; // ✅ guard against null
+
             string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
             var imageFiles = files.Where(IsImageFile).ToList();
 
             if (imageFiles.Count == 0) return;
 
-            StartSpinner(); // show spinner instead of progress bar
+            StartSpinner("Copying images..."); // show spinner instead of progress bar
             ShowToast("Copying files...");
 
             await Task.Run(() =>
@@ -149,7 +188,7 @@ namespace PicSerial
 
                     Dispatcher.Invoke(() =>
                     {
-                        AddThumbnail(newFileName, file);
+                        Images.Add(new ImageItem(newFileName, file));
                         UpdateStatus();
                     });
                 }
@@ -165,118 +204,194 @@ namespace PicSerial
             string ext = Path.GetExtension(file).ToLower();
             return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".gif";
         }
-
-        private void AddThumbnail(string newFilePath, string originalFilePath)
-        {
-            try
-            {
-                BitmapImage bitmap = new BitmapImage();
-                bitmap.BeginInit();
-                bitmap.UriSource = new Uri(newFilePath);
-                bitmap.CacheOption = BitmapCacheOption.OnLoad; // release file lock
-                bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-                bitmap.EndInit();
-                bitmap.Freeze();
-
-                // Thumbnail image
-                Image img = new Image
-                {
-                    Source = bitmap,
-                    Width = 100,
-                    Height = 100,
-                    Margin = new Thickness(5)
-                };
-
-                // Show NEW file name under thumbnail
-                TextBlock txt = new TextBlock
-                {
-                    Text = Path.GetFileName(newFilePath),
-                    FontSize = 10,
-                    TextAlignment = TextAlignment.Center,
-                    TextWrapping = TextWrapping.Wrap,
-                    Margin = new Thickness(5, 0, 5, 5),
-                    ToolTip = $"Original: {Path.GetFileName(originalFilePath)}\nPath: {originalFilePath}"
-                };
-
-                // StackPanel to hold thumbnail + name
-                StackPanel panel = new StackPanel
-                {
-                    Orientation = Orientation.Vertical,
-                    Margin = new Thickness(5),
-                    Tag = new { NewFile = newFilePath, OriginalFile = originalFilePath }
-                };
-                panel.Children.Add(img);
-                panel.Children.Add(txt);
-
-                // Context menu
-                ContextMenu menu = new ContextMenu();
-
-                MenuItem openNew = new MenuItem { Header = "Open New File" };
-                openNew.Click += (s, e) => Process.Start("explorer.exe", newFilePath);
-
-                MenuItem openOriginal = new MenuItem { Header = "Open Original File" };
-                openOriginal.Click += (s, e) => Process.Start("explorer.exe", originalFilePath);
-
-                MenuItem deleteFile = new MenuItem { Header = "Delete New File" };
-                deleteFile.Click += (s, e) =>
-                {
-                    try
-                    {
-                        if (File.Exists(newFilePath))
-                        {
-                            File.Delete(newFilePath);
-                            PreviewPanel.Children.Remove(panel);
-                            ShowToast($"Deleted: {Path.GetFileName(newFilePath)}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ShowToast("Error deleting file: " + ex.Message);
-                    }
-                };
-
-                MenuItem deleteOriginal = new MenuItem { Header = "Delete Original File" };
-                deleteOriginal.Click += (s, e) =>
-                {
-                    try
-                    {
-                        if (File.Exists(originalFilePath))
-                        {
-                            File.Delete(originalFilePath);
-                            ShowToast($"Deleted original: {Path.GetFileName(originalFilePath)}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ShowToast("Error deleting original file: " + ex.Message);
-                    }
-                };
-
-                menu.Items.Add(openNew);
-                menu.Items.Add(openOriginal);
-                menu.Items.Add(new Separator());
-                menu.Items.Add(deleteFile);
-                menu.Items.Add(deleteOriginal);
-
-                panel.ContextMenu = menu;
-
-                PreviewPanel.Children.Add(panel);
-            }
-            catch (Exception ex)
-            {
-                ShowToast("Error loading thumbnail: " + ex.Message);
-            }
-        }
-
-
+               
 
         private void UpdateStatus()
         {
             StatusFolder.Text = string.IsNullOrEmpty(selectedFolder)
                 ? "No folder selected"
                 : $"Folder: {selectedFolder}";
-            StatusCounter.Text = $"Images copied: {imageCount}";
+           
+           // StatusCounter.Text = $"Images copied: {imageCount}";
+            StatusCounter.Text = $"Images copied: {Images.Count}";
         }
+
+        private void OpenNewFile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.DataContext is ImageItem item)
+                Process.Start("explorer.exe", item.FilePath);
+        }
+
+        private void OpenOriginalFile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.DataContext is ImageItem item)
+                Process.Start("explorer.exe", item.OriginalPath);
+        }
+
+        private void DeleteNewFile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.DataContext is ImageItem item)
+            {
+                try
+                {
+                    if (File.Exists(item.FilePath))
+                    {
+                        File.Delete(item.FilePath);
+                        Images.Remove(item);
+                        ShowToast($"Deleted: {Path.GetFileName(item.FilePath)}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ShowToast("Error deleting file: " + ex.Message);
+                }
+            }
+        }
+
+        private void ThumbnailList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        private void ThumbnailList_MouseMove(object sender, MouseEventArgs e)
+        {
+            Point mousePos = e.GetPosition(null);
+            Vector diff = _dragStartPoint - mousePos;
+
+            if (e.LeftButton == MouseButtonState.Pressed &&
+                (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                 Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance))
+            {
+                var container = FindAncestor<ListBoxItem>((DependencyObject)e.OriginalSource);
+                if (container == null) return;
+
+                var draggedItem = (ImageItem)container.DataContext;
+                DragDrop.DoDragDrop(container, draggedItem, DragDropEffects.Move);
+            }
+        }
+
+        private void ThumbnailList_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(ImageItem)))
+            {
+                var droppedData = e.Data.GetData(typeof(ImageItem)) as ImageItem;
+                var target = ((FrameworkElement)e.OriginalSource).DataContext as ImageItem;
+
+                if (droppedData != null && target != null && droppedData != target)
+                {
+                    int oldIndex = Images.IndexOf(droppedData);
+                    int newIndex = Images.IndexOf(target);
+
+                    if (oldIndex >= 0 && newIndex >= 0)
+                        Images.Move(oldIndex, newIndex);
+                }
+            }
+        }
+
+        // Helper
+        private static T FindAncestor<T>(DependencyObject current) where T : DependencyObject
+        {
+            while (current != null)
+            {
+                if (current is T) return (T)current;
+                current = VisualTreeHelper.GetParent(current);
+            }
+            return null;
+        }
+
+        private async void RenameSerial_Click(object sender, RoutedEventArgs e)
+        {
+            if (Images == null || Images.Count == 0)
+            {
+                ShowToast("No images to rename.");
+                return;
+            }
+
+            string dir = Path.GetDirectoryName(Images.First().FilePath);
+            int counter = 1;
+
+            StartSpinner("Renaming images...");
+
+            // Pass 1: temporary names
+            foreach (var item in Images)
+            {
+                if (!File.Exists(item.FilePath))
+                {
+                    ShowToast($"File not found: {item.FilePath}");
+                    continue;
+                }
+
+                string tempName = Path.Combine(dir, $"tmp_{counter:D4}{Path.GetExtension(item.FilePath)}");
+
+                // Avoid collision with existing tmp file
+                if (File.Exists(tempName))
+                {
+                    File.Delete(tempName);
+                }
+
+                File.Move(item.FilePath, tempName);
+                item.FilePath = tempName;
+                counter++;
+            }
+
+            // Pass 2: final serial names
+            counter = 1;
+            foreach (var item in Images)
+            {
+                if (!File.Exists(item.FilePath))
+                {
+                    ShowToast($"Temp file missing: {item.FilePath}");
+                    continue;
+                }
+
+                string newName = Path.Combine(dir, $"{counter:D4}{Path.GetExtension(item.FilePath)}");
+
+                // Avoid collision with existing final file
+                if (File.Exists(newName))
+                {
+                    File.Delete(newName);
+                }
+
+                File.Move(item.FilePath, newName);
+                item.FilePath = newName;
+                item.DisplayName = Path.GetFileName(newName);
+
+                await Task.Delay(100); // short delay to release locks
+                counter++;
+            }
+
+            // ✅ Clear and reload thumbnails after renaming
+            await Task.Delay(200); // ensure file system settles
+            ReloadThumbnails(dir);
+            UpdateStatus();
+            StopSpinner();
+            ShowToast("Renamed successfully!");
+        }
+
+
+        private void ReloadThumbnails(string folderPath)
+        {
+            Images.Clear();
+
+            var files = Directory.GetFiles(folderPath)
+                                 .Where(f => IsImageFile(f))
+                                 .OrderBy(f => f);
+
+            foreach (var file in files)
+            {
+                BitmapImage bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(file);
+                bitmap.DecodePixelWidth = 100;
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+                bitmap.EndInit();
+                bitmap.Freeze();
+
+                Images.Add(new ImageItem(file, Path.GetFileName(file)) { Thumbnail = bitmap });
+            }
+        }
+
 
         private void StartSpinner(string message = "Loading images...")
         {
@@ -323,5 +438,29 @@ namespace PicSerial
         }
 
 
+    }
+
+    public class ImageItem
+    {
+        public string FilePath { get; set; }
+        public string OriginalPath { get; set; }
+        public BitmapImage Thumbnail { get; set; }
+        public string DisplayName { get; set; }
+
+        public ImageItem(string newFilePath, string originalFilePath)
+        {
+            FilePath = newFilePath;
+            OriginalPath = originalFilePath;
+            DisplayName = Path.GetFileName(newFilePath);
+
+            Thumbnail = new BitmapImage();
+            Thumbnail.BeginInit();
+            Thumbnail.UriSource = new Uri(newFilePath);
+            Thumbnail.DecodePixelWidth = 100; // lightweight thumbnail
+            Thumbnail.CacheOption = BitmapCacheOption.OnLoad;
+            Thumbnail.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            Thumbnail.EndInit();
+            Thumbnail.Freeze();
+        }
     }
 }

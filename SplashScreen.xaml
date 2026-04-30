@@ -1,0 +1,40 @@
+﻿<Window x:Class="PicSerial.SplashScreen"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen"
+        Width="600" Height="400"
+        ShowInTaskbar="False"
+        Topmost="True">
+    <Grid>
+        <Image Source="/PicSerialSplash1.png"
+               Stretch="Uniform"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+               Opacity="0"
+               x:Name="SplashImage"/>
+
+        <TextBlock Text="Loading..."
+                   Foreground="White"
+                   FontSize="16"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Bottom"
+                   Margin="0,0,0,40"
+                   Opacity="0"
+                   x:Name="LoadingText"/>
+        <StackPanel Orientation="Horizontal"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            Margin="0,0,0,20"
+            x:Name="DotPanel">
+            <Ellipse Width="8" Height="8" Fill="White" Opacity="0" Margin="3" x:Name="Dot1"/>
+            <Ellipse Width="8" Height="8" Fill="White" Opacity="0" Margin="3" x:Name="Dot2"/>
+            <Ellipse Width="8" Height="8" Fill="White" Opacity="0" Margin="3" x:Name="Dot3"/>
+            <Ellipse Width="8" Height="8" Fill="White" Opacity="0" Margin="3" x:Name="Dot4"/>
+            <Ellipse Width="8" Height="8" Fill="White" Opacity="0" Margin="3" x:Name="Dot5"/>
+        </StackPanel>
+
+    </Grid>
+</Window>
