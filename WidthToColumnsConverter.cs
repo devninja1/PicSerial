@@ -1,35 +1,40 @@
 ﻿using System;
 using System.Globalization;
-using System.Windows;
 using System.Windows.Data;
 
 namespace PicSerial
 {
+    [ValueConversion(typeof(double), typeof(int))]
     public class WidthToColumnsConverter : IValueConverter
     {
+        // Approximate thumbnail total width (including margins). Adjust as needed.
+        private const double ColumnWidth = 160.0;
+
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
+            if (value == null)
+                return 1;
+
             if (value is double width)
             {
-                // Assume each thumbnail cell is ~150px wide
-                int columns = Math.Max(1, (int)(width / 160));
-
-                // Clamp to number of items if available
-                if (Application.Current.MainWindow is MainWindow main &&
-                    main.ThumbnailList.Items.Count > 0)
-                {
-                    int itemCount = main.ThumbnailList.Items.Count;
-                    columns = Math.Min(columns, itemCount);
-                    if (itemCount < columns) columns = itemCount; // clamp
-                }
-                return columns;
+                // Ensure at least one column
+                int cols = Math.Max(1, (int)Math.Floor(width / ColumnWidth));
+                return cols;
             }
+
+            // Try to handle other numeric types gracefully
+            if (double.TryParse(value.ToString(), out double parsed))
+            {
+                int cols = Math.Max(1, (int)Math.Floor(parsed / ColumnWidth));
+                return cols;
+            }
+
             return 1;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
     }
 }

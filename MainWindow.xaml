@@ -33,7 +33,15 @@
                 </EventTrigger>
             </Style.Triggers>
         </Style>
+
+        <Storyboard x:Key="StatusTextBounce" RepeatBehavior="Forever" AutoReverse="True">
+            <DoubleAnimation Storyboard.TargetName="StatusCounterTransform"
+                         Storyboard.TargetProperty="X"
+                         From="0" To="10"
+                         Duration="0:0:0.5" />
+        </Storyboard>
     </Window.Resources>
+
     <Grid>
         <DockPanel LastChildFill="True">
 
@@ -78,17 +86,30 @@
                         <TextBlock Text="Refresh/Rename" FontSize="10" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-   
 
 
-            <!-- Spacer pushes status bar items to the right -->
+
+                <!-- Spacer pushes status bar items to the right -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <StatusBar Background="#EEE" Height="22">
                         <StatusBarItem>
                             <TextBlock x:Name="StatusFolder" Text="No folder selected" FontSize="11"/>
                         </StatusBarItem>
                         <StatusBarItem>
-                            <TextBlock x:Name="StatusCounter" Text="Images copied: 0" FontSize="11"/>
+                            <TextBlock x:Name="StatusCounter"         FontWeight="Bold"  RenderTransformOrigin="0.5,0.5" Text="Images copied: 0">
+                                <TextBlock.RenderTransform>
+                                    <TranslateTransform x:Name="StatusCounterTransform" />
+                                </TextBlock.RenderTransform>
+                                <TextBlock.Foreground>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#FF00C6FF" Offset="0.0"/>
+                                        <GradientStop Color="#FF0072FF" Offset="1.0"/>
+                                    </LinearGradientBrush>
+                                </TextBlock.Foreground>
+                               
+                            </TextBlock>
+
+
                         </StatusBarItem>
                     </StatusBar>
                 </StackPanel>
@@ -96,13 +117,13 @@
             <!-- Drag-drop area -->
             <Border DockPanel.Dock="Top" Margin="5" BorderBrush="Gray" BorderThickness="2"
                     AllowDrop="True" DragEnter="DragArea_DragEnter" Drop="DragArea_Drop"                    Background="LightGray">
-                <ScrollViewer MinHeight="400" HorizontalScrollBarVisibility="Disabled"
-              VerticalScrollBarVisibility="Auto">
-                    <ListBox x:Name="ThumbnailList" ItemsSource="{Binding Images}"    PreviewMouseLeftButtonDown="ThumbnailList_PreviewMouseLeftButtonDown"         MouseMove="ThumbnailList_MouseMove" Drop="ThumbnailList_Drop">
+                <ScrollViewer MinHeight="400" HorizontalScrollBarVisibility="Disabled"   PanningMode="VerticalOnly"    VerticalScrollBarVisibility="Auto">
+                    <ListBox x:Name="ThumbnailList" ItemsSource="{Binding Images}"  
+                          ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled"    PreviewMouseWheel="ThumbnailList_PreviewMouseWheel"  PreviewMouseLeftButtonDown="ThumbnailList_PreviewMouseLeftButtonDown" MouseMove="ThumbnailList_MouseMove" Drop="ThumbnailList_Drop">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <!-- UniformGrid ensures fixed number of columns -->
-                                <UniformGrid Columns="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource WidthToColumnsConverter}}"   VerticalAlignment="Top" />
+                                <UniformGrid Columns="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource WidthToColumnsConverter}}"   VerticalAlignment="Top" IsItemsHost="True" />
 
                                 <!-- WrapPanel adapts to window width -->
                                 <!--<WrapPanel Orientation="Horizontal" />-->

@@ -2,11 +2,13 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows7.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\PicSerialSplash256.ico</ApplicationIcon>
+    <PackageIcon>PicSerialSplash256.ico</PackageIcon>
+    <EnableNETAnalyzers>False</EnableNETAnalyzers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,6 +29,13 @@
     <Resource Include="PicSerialSplash.png" />
     <Resource Include="PicSerialSplash1.png" />
     <Resource Include="PicSrial.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Assets\PicSerialSplash256.ico">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -29,6 +29,9 @@ namespace PicSerial
         private int imageCount = 0;
         private Point _dragStartPoint;
         private bool _isClosing = false; // flag to avoid loop
+                                         // Maps new file path → original file path
+        private Dictionary<string, string> existingOriginalFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
 
         public MainWindow()
         {
@@ -69,6 +72,7 @@ namespace PicSerial
             {
                 selectedFolder = Path.GetDirectoryName(dialog.FileName);
                 Images.Clear();
+                existingOriginalFiles.Clear();
                 imageCount = 0;
                 UpdateStatus();
 
@@ -120,6 +124,7 @@ namespace PicSerial
         private void BtnClearPreviews_Click(object sender, RoutedEventArgs e)
         {
             Images.Clear();
+            existingOriginalFiles.Clear();
             UpdateStatus();
             ShowToast("Previews cleared!");
         }
@@ -178,21 +183,38 @@ namespace PicSerial
             StartSpinner("Copying images..."); // show spinner instead of progress bar
             ShowToast("Copying files...");
 
-            await Task.Run(() =>
+            //await Task.Run(() =>
+            //{
+            foreach (string file in imageFiles)
             {
-                foreach (string file in imageFiles)
+                if (existingOriginalFiles.ContainsValue(file))
                 {
-                    imageCount++;
-                    string newFileName = Path.Combine(selectedFolder, imageCount.ToString("D4") + Path.GetExtension(file));
-                    File.Copy(file, newFileName, true);
+                    var result = MessageBox.Show(
+                        $"Duplicate detected: {Path.GetFileName(file)}\nDo you want to copy anyway?",
+                        "Duplicate Image",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning);
 
-                    Dispatcher.Invoke(() =>
+                    if (result == MessageBoxResult.No)
                     {
-                        Images.Add(new ImageItem(newFileName, file));
-                        UpdateStatus();
-                    });
+                        Dispatcher.Invoke(() => ShowToast($"Skipped duplicate: {Path.GetFileName(file)}"));
+                        continue; // skip this file
+                    }
                 }
-            });
+
+                imageCount++;
+                string newFileName = Path.Combine(selectedFolder, imageCount.ToString("D4") + Path.GetExtension(file));
+                File.Copy(file, newFileName, true);
+
+                Dispatcher.Invoke(() =>
+                {
+                    Images.Add(new ImageItem(newFileName, file));
+                    existingOriginalFiles[newFileName] = file; // new → original
+                    UpdateStatus();
+                });
+            }
+
+            //});
 
             StopSpinner(); // hide spinner when done
             ShowToast("Images copied successfully!");
@@ -204,15 +226,20 @@ namespace PicSerial
             string ext = Path.GetExtension(file).ToLower();
             return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".gif";
         }
-               
+
+        private bool IsDuplicate(string filePath, HashSet<string> existingFiles)
+        {
+            return existingFiles.Contains(filePath);
+        }
+
 
         private void UpdateStatus()
         {
             StatusFolder.Text = string.IsNullOrEmpty(selectedFolder)
                 ? "No folder selected"
                 : $"Folder: {selectedFolder}";
-           
-           // StatusCounter.Text = $"Images copied: {imageCount}";
+
+            // StatusCounter.Text = $"Images copied: {imageCount}";
             StatusCounter.Text = $"Images copied: {Images.Count}";
         }
 
@@ -238,7 +265,16 @@ namespace PicSerial
                     {
                         File.Delete(item.FilePath);
                         Images.Remove(item);
+
+                        // Also remove from duplicate tracking
+
+                        if (existingOriginalFiles.ContainsKey(item.FilePath))
+                        {
+                            existingOriginalFiles.Remove(item.FilePath);
+                        }
+
                         ShowToast($"Deleted: {Path.GetFileName(item.FilePath)}");
+                        UpdateStatus();
                     }
                 }
                 catch (Exception ex)
@@ -247,6 +283,17 @@ namespace PicSerial
                 }
             }
         }
+
+        private void ThumbnailList_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            var scrollViewer = FindAncestor<ScrollViewer>((DependencyObject)sender);
+            if (scrollViewer != null)
+            {
+                scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset - e.Delta);
+                e.Handled = true;
+            }
+        }
+
 
         private void ThumbnailList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -311,60 +358,90 @@ namespace PicSerial
             int counter = 1;
 
             StartSpinner("Renaming images...");
-
-            // Pass 1: temporary names
-            foreach (var item in Images)
+            // Start text animation
+            Dispatcher.Invoke(() =>
             {
-                if (!File.Exists(item.FilePath))
-                {
-                    ShowToast($"File not found: {item.FilePath}");
-                    continue;
-                }
-
-                string tempName = Path.Combine(dir, $"tmp_{counter:D4}{Path.GetExtension(item.FilePath)}");
-
-                // Avoid collision with existing tmp file
-                if (File.Exists(tempName))
-                {
-                    File.Delete(tempName);
-                }
-
-                File.Move(item.FilePath, tempName);
-                item.FilePath = tempName;
-                counter++;
-            }
-
-            // Pass 2: final serial names
-            counter = 1;
-            foreach (var item in Images)
+                var sb = (Storyboard)FindResource("StatusTextBounce");
+                sb.Begin();
+            });
+            int total = Images.Count;
+            await Task.Run(async () =>
             {
-                if (!File.Exists(item.FilePath))
+                // Pass 1: temporary names
+                foreach (var item in Images)
                 {
-                    ShowToast($"Temp file missing: {item.FilePath}");
-                    continue;
+                    if (!File.Exists(item.FilePath))
+                    {
+                        if (!string.IsNullOrEmpty(item.FilePath))
+                        {
+                            existingOriginalFiles.Remove(item.FilePath);
+                        }
+
+                        Dispatcher.Invoke(() => ShowToast($"File not found: {item.FilePath}"));
+                        continue;
+                    }
+
+                    string tempName = Path.Combine(dir, $"tmp_{counter:D4}{Path.GetExtension(item.FilePath)}");
+
+                    // Avoid collision with existing tmp file
+                    if (File.Exists(tempName))
+                    {
+                        File.Delete(tempName);
+                    }
+
+                    File.Move(item.FilePath, tempName);
+                    Dispatcher.Invoke(() =>
+                    {
+                        item.FilePath = tempName;
+                        double percent = (counter / (double)total) * 100;
+                        StatusCounter.Text = $"Temp Renaming: {counter}/{total} ({percent:F0}%)";
+                    });
+                    counter++;
                 }
 
-                string newName = Path.Combine(dir, $"{counter:D4}{Path.GetExtension(item.FilePath)}");
-
-                // Avoid collision with existing final file
-                if (File.Exists(newName))
+                // Pass 2: final serial names
+                counter = 1;
+                foreach (var item in Images)
                 {
-                    File.Delete(newName);
+                    if (!File.Exists(item.FilePath))
+                    {
+                        Dispatcher.Invoke(() => ShowToast($"Temp file missing: {item.FilePath}"));
+                        continue;
+                    }
+
+                    string newName = Path.Combine(dir, $"{counter:D4}{Path.GetExtension(item.FilePath)}");
+
+                    // Avoid collision with existing final file
+                    if (File.Exists(newName))
+                    {
+                        File.Delete(newName);
+                    }
+
+                    File.Move(item.FilePath, newName);
+                    Dispatcher.Invoke(() =>
+                    {
+                        item.FilePath = newName;
+                        item.DisplayName = Path.GetFileName(newName);
+                        double percent = (counter / (double)total) * 100;
+                        StatusCounter.Text = $"Renaming: {counter}/{total} ({percent:F0}%)";
+                    });
+                    await Task.Delay(100); // short delay to release locks
+                    counter++;
                 }
-
-                File.Move(item.FilePath, newName);
-                item.FilePath = newName;
-                item.DisplayName = Path.GetFileName(newName);
-
-                await Task.Delay(100); // short delay to release locks
-                counter++;
-            }
+            });
 
             // ✅ Clear and reload thumbnails after renaming
             await Task.Delay(200); // ensure file system settles
             ReloadThumbnails(dir);
-            UpdateStatus();
             StopSpinner();
+            Dispatcher.Invoke(() =>
+            {
+                var sb = (Storyboard)FindResource("StatusTextBounce");
+                sb.Stop();
+                StatusCounter.Text = "Renamed successfully!";
+            });
+
+            UpdateStatus();
             ShowToast("Renamed successfully!");
         }
 
