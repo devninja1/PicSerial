@@ -48,18 +48,18 @@
             <!-- Top toolbar -->
             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Background="#EEE" Height="50">
                 <!-- New Folder -->
-                <Button x:Name="BtnNewFolder" Click="BtnNewFolder_Click" Width="60" Height="50" Margin="5,0">
+                <Button x:Name="BtnNewFolder" Click="BtnNewFolder_Click" Width="80" Height="50" Margin="5,0">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                         <iconPacks:PackIconMaterial Kind="FolderPlus" Width="20" Height="20" HorizontalAlignment="Center"/>
-                        <TextBlock Text="New" FontSize="10" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Select New" FontSize="10" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
-                <!-- Open Folder -->
+                <!-- Show Open Folder -->
                 <Button x:Name="BtnOpenFolder" Click="BtnOpenFolder_Click" Width="60" Height="50" Margin="5,0">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="FolderOpen" Width="20" Height="20" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Open" FontSize="10" HorizontalAlignment="Center"/>
+                        <iconPacks:PackIconMaterial Kind="FolderEye" Width="20" Height="20" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Show/Open" FontSize="10" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
@@ -72,12 +72,12 @@
                 </Button>
 
                 <!-- Show Folder -->
-                <Button x:Name="BtnShowFolder" Click="BtnShowFolder_Click" Width="60" Height="50" Margin="5,0">
+                <!--<Button x:Name="BtnShowFolder" Click="BtnShowFolder_Click" Width="60" Height="50" Margin="5,0">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                         <iconPacks:PackIconMaterial Kind="FolderEye" Width="20" Height="20" HorizontalAlignment="Center"/>
                         <TextBlock Text="Show" FontSize="10" HorizontalAlignment="Center"/>
                     </StackPanel>
-                </Button>
+                </Button>-->
 
                 <!-- Refresh Serial -->
                 <Button Click="RenameSerial_Click" Width="80" Height="50" Margin="5,0">
@@ -87,29 +87,27 @@
                     </StackPanel>
                 </Button>
 
-
-
                 <!-- Spacer pushes status bar items to the right -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <StatusBar Background="#EEE" Height="22">
-                        <StatusBarItem>
-                            <TextBlock x:Name="StatusFolder" Text="No folder selected" FontSize="11"/>
-                        </StatusBarItem>
-                        <StatusBarItem>
-                            <TextBlock x:Name="StatusCounter"         FontWeight="Bold"  RenderTransformOrigin="0.5,0.5" Text="Images copied: 0">
-                                <TextBlock.RenderTransform>
-                                    <TranslateTransform x:Name="StatusCounterTransform" />
-                                </TextBlock.RenderTransform>
-                                <TextBlock.Foreground>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                        <GradientStop Color="#FF00C6FF" Offset="0.0"/>
-                                        <GradientStop Color="#FF0072FF" Offset="1.0"/>
-                                    </LinearGradientBrush>
-                                </TextBlock.Foreground>
-                               
-                            </TextBlock>
 
+                    <StatusBar Background="#EEE" Height="50" >
+                        <StatusBarItem>
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock x:Name="StatusFolder" FontWeight="Bold" Text="No folder selected" FontSize="12"/>
 
+                                <TextBlock x:Name="StatusCounter"         FontWeight="Bold"  RenderTransformOrigin="0.5,0.5" Text="Images copied: 0">
+                                    <TextBlock.RenderTransform>
+                                        <TranslateTransform x:Name="StatusCounterTransform" />
+                                    </TextBlock.RenderTransform>
+                                    <TextBlock.Foreground>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#FF00C6FF" Offset="0.0"/>
+                                            <GradientStop Color="#FF0072FF" Offset="1.0"/>
+                                        </LinearGradientBrush>
+                                    </TextBlock.Foreground>
+                                </TextBlock>
+
+                            </StackPanel>
                         </StatusBarItem>
                     </StatusBar>
                 </StackPanel>

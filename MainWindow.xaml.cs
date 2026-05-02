@@ -124,6 +124,7 @@ namespace PicSerial
         private void BtnClearPreviews_Click(object sender, RoutedEventArgs e)
         {
             Images.Clear();
+            selectedFolder = string.Empty;
             existingOriginalFiles.Clear();
             UpdateStatus();
             ShowToast("Previews cleared!");
@@ -237,7 +238,7 @@ namespace PicSerial
         {
             StatusFolder.Text = string.IsNullOrEmpty(selectedFolder)
                 ? "No folder selected"
-                : $"Folder: {selectedFolder}";
+                : $"Selected folder: {selectedFolder}";
 
             // StatusCounter.Text = $"Images copied: {imageCount}";
             StatusCounter.Text = $"Images copied: {Images.Count}";
