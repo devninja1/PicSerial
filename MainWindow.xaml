@@ -48,7 +48,7 @@
             <!-- Top toolbar -->
             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Background="#EEE" Height="50">
                 <!-- New Folder -->
-                <Button x:Name="BtnNewFolder" Click="BtnNewFolder_Click" Width="80" Height="50" Margin="5,0">
+                <Button x:Name="BtnNewFolder" Click="BtnNewFolder_Click" Width="70" Height="50" Margin="5,0">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                         <iconPacks:PackIconMaterial Kind="FolderPlus" Width="20" Height="20" HorizontalAlignment="Center"/>
                         <TextBlock Text="Select New" FontSize="10" HorizontalAlignment="Center"/>
@@ -56,7 +56,7 @@
                 </Button>
 
                 <!-- Show Open Folder -->
-                <Button x:Name="BtnOpenFolder" Click="BtnOpenFolder_Click" Width="60" Height="50" Margin="5,0">
+                <Button x:Name="BtnOpenFolder" Click="BtnOpenFolder_Click" Width="70" Height="50" Margin="5,0">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                         <iconPacks:PackIconMaterial Kind="FolderEye" Width="20" Height="20" HorizontalAlignment="Center"/>
                         <TextBlock Text="Show/Open" FontSize="10" HorizontalAlignment="Center"/>
@@ -116,8 +116,7 @@
             <Border DockPanel.Dock="Top" Margin="5" BorderBrush="Gray" BorderThickness="2"
                     AllowDrop="True" DragEnter="DragArea_DragEnter" Drop="DragArea_Drop"                    Background="LightGray">
                 <ScrollViewer MinHeight="400" HorizontalScrollBarVisibility="Disabled"   PanningMode="VerticalOnly"    VerticalScrollBarVisibility="Auto">
-                    <ListBox x:Name="ThumbnailList" ItemsSource="{Binding Images}"  
-                          ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled"    PreviewMouseWheel="ThumbnailList_PreviewMouseWheel"  PreviewMouseLeftButtonDown="ThumbnailList_PreviewMouseLeftButtonDown" MouseMove="ThumbnailList_MouseMove" Drop="ThumbnailList_Drop">
+                    <ListBox x:Name="ThumbnailList" ItemsSource="{Binding Images}" ScrollViewer.CanContentScroll="True"  KeyDown="ThumbnailList_KeyDown" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled"    PreviewMouseWheel="ThumbnailList_PreviewMouseWheel"  PreviewMouseLeftButtonDown="ThumbnailList_PreviewMouseLeftButtonDown" MouseMove="ThumbnailList_MouseMove" Drop="ThumbnailList_Drop">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <!-- UniformGrid ensures fixed number of columns -->
@@ -131,9 +130,9 @@
                             <DataTemplate>
                                 <StackPanel Orientation="Vertical" Margin="5" Width="150">
                                     <!-- Viewbox scales the image automatically -->
-                                    <Border Style="{StaticResource ThumbnailBorderStyle}" BorderBrush="Gray" BorderThickness="1" Margin="2">
-                                        <Viewbox Stretch="Uniform" MaxWidth="150" MaxHeight="150">
-                                            <Image Source="{Binding Thumbnail}" Width="100" Height="100" Stretch="Uniform" MinHeight="120" />
+                                    <Border Style="{StaticResource ThumbnailBorderStyle}" BorderBrush="LightGray" BorderThickness="1" Margin="2">
+                                        <Viewbox Stretch="Uniform" MaxWidth="150" MaxHeight="150" ToolTip="{Binding OriginalPath}">
+                                            <Image Source="{Binding Thumbnail}" Width="120" Height="120" Stretch="Uniform" MinHeight="120" />
                                         </Viewbox>
                                     </Border>
                                     <TextBlock Text="{Binding DisplayName}" FontSize="10"

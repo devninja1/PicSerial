@@ -194,7 +194,10 @@ namespace PicSerial
                         $"Duplicate detected: {Path.GetFileName(file)}\nDo you want to copy anyway?",
                         "Duplicate Image",
                         MessageBoxButton.YesNo,
-                        MessageBoxImage.Warning);
+                        MessageBoxImage.Warning,
+                        MessageBoxResult.No,
+                        MessageBoxOptions.DefaultDesktopOnly
+                        );
 
                     if (result == MessageBoxResult.No)
                     {
@@ -260,30 +263,45 @@ namespace PicSerial
         {
             if (sender is MenuItem menuItem && menuItem.DataContext is ImageItem item)
             {
-                try
-                {
-                    if (File.Exists(item.FilePath))
-                    {
-                        File.Delete(item.FilePath);
-                        Images.Remove(item);
-
-                        // Also remove from duplicate tracking
-
-                        if (existingOriginalFiles.ContainsKey(item.FilePath))
-                        {
-                            existingOriginalFiles.Remove(item.FilePath);
-                        }
-
-                        ShowToast($"Deleted: {Path.GetFileName(item.FilePath)}");
-                        UpdateStatus();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ShowToast("Error deleting file: " + ex.Message);
-                }
+                DeleteImage(item);
             }
         }
+
+        private void ThumbnailList_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Delete && ThumbnailList.SelectedItem is ImageItem item)
+            {
+                DeleteImage(item);
+            }
+        }
+
+
+        private void DeleteImage(ImageItem item)
+        {
+            try
+            {
+                if (File.Exists(item.FilePath))
+                {
+                    File.Delete(item.FilePath);
+                    Images.Remove(item);
+
+                    // Also remove from duplicate tracking
+
+                    if (existingOriginalFiles.ContainsKey(item.FilePath))
+                    {
+                        existingOriginalFiles.Remove(item.FilePath);
+                    }
+
+                    ShowToast($"Deleted: {Path.GetFileName(item.FilePath)}");
+                    UpdateStatus();
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowToast("Error deleting file: " + ex.Message);
+            }
+        }
+
 
         private void ThumbnailList_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
